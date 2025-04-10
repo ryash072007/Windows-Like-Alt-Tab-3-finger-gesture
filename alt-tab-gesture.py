@@ -60,8 +60,6 @@ def run_libinput():
     except subprocess.CalledProcessError as e:
         print(f"Error running fusuma: {e}")
 
-    init_time = 0
-    velocity = 0
     distance = 0
     while True:
         try:
@@ -80,35 +78,28 @@ def run_libinput():
                         data[-1] = data[-1][:data[-1].find("/")]
                         if data[1].isdigit():
                             del data[:]
-                    if data:
+                    if data and data[2] == "3":
                         match data[0]:
                             case "GESTURE_SWIPE_BEGIN":
                                 print("Gesture started.")
-                                init_time = float(data[1].strip("+s"))
-                                velocity = 0
                                 distance = 0
                                 alt_down()
                             case "GESTURE_SWIPE_END":
                                 print("Gesture ended.")
                                 alt_up()
                             case "GESTURE_SWIPE_UPDATE":
-                                current_time = float(data[1].strip("+s"))
-                                time_spent = (current_time - init_time)
-                                distance += velocity * time_spent + 0.5 * float(data[3]) * time_spent**2
-                                velocity += float(data[3]) * time_spent
-                                init_time = current_time
+                                distance += float(data[3])
                                 print(
-                                    f"Distance: {distance:.2f}, Velocity: {velocity:.2f}"
+                                    f"Distance: {distance:.2f}"
                                 )
-                                if distance > 0.1:
+                                # IMPROVE PART
+                                if distance > 15:
                                     print("right")
                                     tab()
-                                    velocity = 0
                                     distance = 0
-                                if distance < -0.1:
+                                if distance < -15:
                                     print("left")
                                     shift_tab()
-                                    velocity = 0
                                     distance = 0
                             case _:
                                 pass
