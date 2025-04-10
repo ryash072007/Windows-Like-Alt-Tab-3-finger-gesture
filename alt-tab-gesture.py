@@ -6,6 +6,7 @@ import os
 
 load_dotenv()
 
+debug = False
 
 def start_ydotoold():
     global child
@@ -14,7 +15,7 @@ def start_ydotoold():
     child.expect("password for")
     child.sendline(os.getenv("root_password"))
     child.expect(pexpect.EOF)
-    print(child.before.decode("utf-8"))
+    if debug: print(child.before.decode("utf-8"))
 
 
 def alt_down():
@@ -56,11 +57,13 @@ def run_libinput():
         process = subprocess.Popen(
             ["libinput", "debug-events"], stdout=subprocess.PIPE, stderr=subprocess.PIPE
         )
-        print("libinput started successfully.")
+        if debug: print("libinput started successfully.")
     except subprocess.CalledProcessError as e:
-        print(f"Error running fusuma: {e}")
+        if debug: print(f"Error running fusuma: {e}")
 
     distance = 0
+    factor = 0.8
+    threshold = 30
     while True:
         try:
             output = process.stdout.readline()
@@ -69,7 +72,6 @@ def run_libinput():
             if output:
                 output = output.decode("utf-8")
                 if "GESTURE_SWIPE_" in output:
-                    # print(output)
                     data = output.split()
                     del data[0]
                     if data[0] == "GESTURE_SWIPE_UPDATE":
@@ -81,26 +83,28 @@ def run_libinput():
                     if data and data[2] == "3":
                         match data[0]:
                             case "GESTURE_SWIPE_BEGIN":
-                                print("Gesture started.")
+                                if debug: print("Gesture started.")
                                 distance = 0
+                                factor = 1
                                 alt_down()
                             case "GESTURE_SWIPE_END":
-                                print("Gesture ended.")
+                                if debug: print("Gesture ended.")
                                 alt_up()
                             case "GESTURE_SWIPE_UPDATE":
-                                distance += float(data[3])
-                                print(
+                                distance += float(data[3]) * factor
+                                if debug: print(
                                     f"Distance: {distance:.2f}"
                                 )
-                                # IMPROVE PART
-                                if distance > 15:
-                                    print("right")
+                                if distance > threshold:
+                                    distance = 0
+                                    factor *= 0.7
+                                    if debug: print("right")
                                     tab()
+                                if distance < -threshold:
                                     distance = 0
-                                if distance < -15:
-                                    print("left")
+                                    factor *= 0.7
+                                    if debug: print("left")
                                     shift_tab()
-                                    distance = 0
                             case _:
                                 pass
         except KeyboardInterrupt:
