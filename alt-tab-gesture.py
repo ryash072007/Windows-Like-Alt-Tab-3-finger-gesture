@@ -30,16 +30,39 @@ def alt_up():
         shell=True,
     )
 
+def tab():
+    subprocess.run(
+        'YDOTOOL_SOCKET="$HOME/.ydotool_socket" ydotool key 15:1;',
+        shell=True,
+    )
+    subprocess.run(
+        'YDOTOOL_SOCKET="$HOME/.ydotool_socket" ydotool key 15:0;',
+        shell=True,
+    )
 
-def run_fusuma():
+def shift_tab():
+    subprocess.run(
+        'YDOTOOL_SOCKET="$HOME/.ydotool_socket" ydotool key 42:1;',
+        shell=True,
+    )
+    tab()
+    subprocess.run(
+        'YDOTOOL_SOCKET="$HOME/.ydotool_socket" ydotool key 42:0;',
+        shell=True,
+    )
+
+def run_libinput():
     try:
         process = subprocess.Popen(
-            ["fusuma", "-v"], stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            ["libinput", "debug-events"], stdout=subprocess.PIPE, stderr=subprocess.PIPE
         )
-        print("Fusuma started successfully.")
+        print("libinput started successfully.")
     except subprocess.CalledProcessError as e:
         print(f"Error running fusuma: {e}")
 
+    init_time = 0
+    velocity = 0
+    distance = 0
     while True:
         try:
             output = process.stdout.readline()
@@ -48,29 +71,49 @@ def run_fusuma():
             if output:
                 output = output.decode("utf-8")
                 if "GESTURE_SWIPE_" in output:
-                    record_start = output.find("GESTURE_SWIPE_")
-                    output = output[record_start:].split("\t")
-                    gesture_finger_count = output[1][0]
-
-                    if gesture_finger_count == "3":
-                        gesture_type = output[0].split(" ")[0]
-                        match gesture_type:
+                    # print(output)
+                    data = output.split()
+                    del data[0]
+                    if data[0] == "GESTURE_SWIPE_UPDATE":
+                        del data[1]
+                        del data[4:]
+                        data[-1] = data[-1][:data[-1].find("/")]
+                        if data[1].isdigit():
+                            del data[:]
+                    if data:
+                        match data[0]:
                             case "GESTURE_SWIPE_BEGIN":
+                                print("Gesture started.")
+                                init_time = float(data[1].strip("+s"))
+                                velocity = 0
+                                distance = 0
                                 alt_down()
                             case "GESTURE_SWIPE_END":
+                                print("Gesture ended.")
                                 alt_up()
                             case "GESTURE_SWIPE_UPDATE":
-                                print(output[1][2:7])
-                                subprocess.run(
-                                    [
-                                        'YDOTOOL_SOCKET="$HOME/.ydotool_socket" ydotool key 15:1 15:0;'
-                                    ],
-                                    shell=True,
+                                current_time = float(data[1].strip("+s"))
+                                time_spent = (current_time - init_time)
+                                distance += velocity * time_spent + 0.5 * float(data[3]) * time_spent**2
+                                velocity += float(data[3]) * time_spent
+                                init_time = current_time
+                                print(
+                                    f"Distance: {distance:.2f}, Velocity: {velocity:.2f}"
                                 )
+                                if distance > 0.1:
+                                    print("right")
+                                    tab()
+                                    velocity = 0
+                                    distance = 0
+                                if distance < -0.1:
+                                    print("left")
+                                    shift_tab()
+                                    velocity = 0
+                                    distance = 0
                             case _:
-                                print(f"Unknown gesture type: {gesture_type}")
+                                pass
         except KeyboardInterrupt:
-            print("Keyboard interrupt received. Stopping fusuma.")
+            print("Keyboard interrupt received. Stopping libinput.")
             process.terminate()
             break
         except Exception as e:
@@ -80,5 +123,5 @@ def run_fusuma():
 
 if __name__ == "__main__":
     start_ydotoold()
-    run_fusuma()
+    run_libinput()
     alt_up()                                                                                                                                                                                                                                                                                                                                
