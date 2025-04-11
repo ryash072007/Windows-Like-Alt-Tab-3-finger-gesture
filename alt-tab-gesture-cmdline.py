@@ -52,7 +52,7 @@ def shift_tab():
         shell=True,
     )
 
-def run_libinput(initial_factor=0.8, threshold=30):
+def run_libinput(initial_factor=0.8, threshold=30, min_factor=0.4):
     try:
         process = subprocess.Popen(
             ["libinput", "debug-events"], stdout=subprocess.PIPE, stderr=subprocess.PIPE
@@ -96,12 +96,14 @@ def run_libinput(initial_factor=0.8, threshold=30):
                                 )
                                 if distance > threshold:
                                     distance = 0
-                                    factor *= 0.7
+                                    factor = max(factor * 0.7, min_factor)
+                                    print(f"factor: {factor:.2f}")
                                     if debug: print("right")
                                     tab()
                                 if distance < -threshold:
                                     distance = 0
-                                    factor *= 0.7
+                                    factor = max(factor * 0.7, min_factor)
+                                    print(f"factor: {factor:.2f}")
                                     if debug: print("left")
                                     shift_tab()
                             case _:
@@ -118,13 +120,14 @@ def run_libinput(initial_factor=0.8, threshold=30):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Windows-like Alt-Tab 3-finger gesture')
     parser.add_argument('--password', '-p', help='Root password for ydotoold (if not provided, will prompt securely)')
-    parser.add_argument('--factor', '-f', type=float, default=0.8, help='Initial sensitivity factor (default: 0.8)')
+    parser.add_argument('--factor', '-f', type=float, default=0.5, help='Initial sensitivity factor (default: 0.5)')
     parser.add_argument('--threshold', '-t', type=float, default=30, help='Swipe threshold distance (default: 30)')
     parser.add_argument('--debug', '-d', action='store_true', help='Enable debug output')
+    parser.add_argument('--min-factor', '-m', type=float, default=0.25, help='Minimum sensitivity factor (default: 0.25)')
     args = parser.parse_args()
     
     debug = args.debug
     
     start_ydotoold(args.password)
-    run_libinput(args.factor, args.threshold)
+    run_libinput(args.factor, args.threshold, args.min_factor)
     alt_up()
